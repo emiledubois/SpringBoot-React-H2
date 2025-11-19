@@ -1,0 +1,76 @@
+/*-------------Pie de pagina (Footer)--------------------------------------------------------------------------------------------------------*/
+
+footer {
+    background-color: black;
+    color: white;
+    padding: 3rem 0 1rem;
+    max-width: 100%;
+}
+
+.footer-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.footer-section h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.footer-section h4 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.footer-section p {
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+}
+
+.footer-section ul li {
+    margin-bottom: 0.5rem;
+}
+
+.footer-section a {
+    color: rgba(255, 255, 255, 0.712);
+    transition: color 0.3s ease;
+}
+
+.footer-section a:hover {
+    color: white;
+}
+
+.redes-sociales {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.redes-sociales a {
+    font-size: 1.5rem;
+    transition: transform 0.3s ease;
+}
+
+.redes-sociales a:hover {
+    transform: scale(1.2);
+}
+
+/*Parte mas baja*/
+.footer-bottom {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 1rem;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 430px){
+    .footer-content .footer-section{
+        flex-direction: column;
+    }
+}

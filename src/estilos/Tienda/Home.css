@@ -1,0 +1,84 @@
+/*---------------------------------Pagina home -------------------------------------------*/
+/*Titulo y botones*/
+.container-home-btn {
+    text-align: center;
+    padding: 20px;
+}
+
+.container-home-btn h1{
+    justify-content: space-between; 
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.container-home-btn h1 button {
+    padding: 12px 20px;
+    margin: 10px;
+    font-size: 12px;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+
+
+/*main home*/
+.main-body {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+    .card-home {
+      background: rgb(216, 216, 216);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      overflow: hidden;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .card-home:hover {
+      transform: scale(1.03);
+    }
+    .card-home img {
+      width: 90%;
+      height: 220px;
+      object-fit: cover;
+      margin: 10px;
+      border-radius: 10px;
+    }
+    .card-content {
+      padding: 15px;
+    }
+    .card-home h3 {
+      margin: 5px 0;
+      font-size: 18px;
+      color: #333;
+    }
+    .card-home p {
+      font-size: 14px;
+      color: #505050;
+      margin: 10px 0;
+    }
+    .card-home .price {
+      font-size: 16px;
+      font-weight: bold;
+      color: #27ae60;
+      margin: 10px 0;
+    }
+    .card-home button {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .card-home button:hover {
+      background: #0b7dda;
+    }

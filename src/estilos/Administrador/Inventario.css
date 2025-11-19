@@ -1,0 +1,214 @@
+.AI-admin-dashboard-layout {
+    display: grid;
+    height: 100vh;
+    overflow-x: hidden;
+    grid-template-columns: 250px 1fr; 
+    grid-template-rows: 1fr;
+}
+
+.AI-main {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+    padding: 30px; 
+    background-color: #ecf0f1; 
+    overflow-y: auto; 
+}
+
+.AI-app {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.AI-app h1 {
+    color: #34495e;
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+.AI-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.AI-metric-card {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-left: 5px solid #2ecc71; /* Color verde para inventario */
+}
+
+.AI-metric-card h2 {
+    font-size: 1.1em;
+    color: #95a5a6;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.AI-metric-value {
+    font-size: 2em;
+    font-weight: 700;
+    color: #34495e;
+}
+
+.AI-metric-value.AI-warning {
+    color: #f39c12; /* Naranja para stock crítico */
+}
+
+.AI-metric-value.AI-critical {
+    color: #e74c3c; /* Rojo para agotado */
+}
+
+/* ================================================= */
+/* Estilos para Barra de Control (Búsqueda y Botones) */
+/* ================================================= */
+
+.AI-control-bar {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.AI-search-input {
+    flex-grow: 1;
+    padding: 10px 15px;
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+    max-width: 300px;
+}
+
+.AI-action-button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    background-color: #95a5a6;
+    color: white;
+}
+
+.AI-action-button:hover {
+    background-color: #7f8c8d;
+}
+
+.AI-action-button.AI-primary {
+    background-color: #2ecc71; /* Verde para acción principal */
+}
+
+.AI-action-button.AI-primary:hover {
+    background-color: #27ae60;
+}
+
+/* ================================================= */
+/* Estilos para la Tabla de Inventario */
+/* ================================================= */
+
+.AI-table-container {
+    overflow-x: auto; /* Permite scroll horizontal en móviles */
+}
+
+.AI-table-container table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px; /* Asegura un ancho mínimo para la tabla */
+}
+
+.AI-table-container th, 
+.AI-table-container td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.AI-table-container th {
+    background-color: #34495e;
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.9em;
+}
+
+.AI-table-container tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.AI-table-container tr:hover {
+    background-color: #f0f0f0;
+}
+
+/* Estilos de Stock y Estado */
+.AI-stock-level.AI-low-stock {
+    color: #f39c12;
+    font-weight: 700;
+}
+
+.AI-stock-level.AI-out-of-stock {
+    color: #e74c3c;
+    font-weight: 700;
+}
+
+.AI-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: white;
+    background-color: #2ecc71; /* Disponible */
+}
+
+.AI-status.AI-status-low {
+    background-color: #f39c12; /* Bajo Stock */
+}
+
+.AI-status.AI-status-out {
+    background-color: #e74c3c; /* Agotado */
+}
+
+/* Botones de Acción de Fila */
+.AI-edit-btn, .AI-delete-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+    font-size: 0.8em;
+    transition: background-color 0.15s;
+}
+
+.AI-edit-btn {
+    background-color: #3498db;
+    color: white;
+}
+
+.AI-edit-btn:hover {
+    background-color: #2980b9;
+}
+
+.AI-delete-btn {
+    background-color: #c0392b;
+    color: white;
+}
+
+.AI-delete-btn:hover {
+    background-color: #a93226;
+}
+
+@media (max-width: 768px) {
+    
+    .AI-admin-dashboard-layout {
+        grid-template-columns: 1fr; 
+        height: auto; 
+    }
+
+    .AI-main {
+        grid-column: 1 / 2; 
+        padding: 15px; 
+        margin-left: 0; 
+    }
+}

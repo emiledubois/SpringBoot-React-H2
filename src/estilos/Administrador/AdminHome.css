@@ -1,0 +1,125 @@
+.AH-admin-dashboard-layout {
+    /* Usa grid para un layout de dashboard: Sidebar (250px) y Contenido (1fr) */
+    display: grid;
+    height: 100vh;
+    overflow-x: hidden;
+    grid-template-columns: 250px 1fr; 
+    grid-template-rows: 1fr;
+    background-color: #ecf0f1; /* Fondo general del dashboard */
+}
+
+.AH-mainHome {
+    /* Coloca el contenido principal en la segunda columna */
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+    padding: 30px; 
+    overflow-y: auto; /* Permite scroll vertical si el contenido es largo */
+}
+
+.AH-app {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.AH-app h1 {
+    color: #2c3e50;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #3498db; /* Línea de color para destacar el título */
+    padding-bottom: 10px;
+}
+
+.AH-app p {
+    color: #7f8c8d;
+    margin-bottom: 30px;
+}
+
+/* Dashboard Metrics: Tarjetas de estadísticas */
+.AH-dashboard-metrics {
+    display: grid;
+    /* Adapta el número de columnas automáticamente */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.AH-metric-card {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-left: 5px solid #3498db; /* Borde izquierdo de color para diseño */
+    transition: transform 0.3s ease;
+}
+
+.AH-metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+.AH-metric-card h2 {
+    font-size: 1.1em;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.AH-metric-card .AH-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #34495e;
+    margin: 5px 0 10px 0;
+}
+
+.AH-trend {
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.AH-trend-up {
+    color: #27ae60; /* Verde para tendencias positivas */
+}
+
+.AH-trend-down {
+    color: #e74c3c; /* Rojo para tendencias negativas */
+}
+
+/* Sales Chart Placeholder: Espacio para gráficos */
+.AH-sales-chart-placeholder {
+    background-color: #ecf0f1;
+    border: 1px dashed #bdc3c7;
+    padding: 50px;
+    border-radius: 8px;
+    text-align: center;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.AH-sales-chart-placeholder h3 {
+    color: #34495e;
+    margin-bottom: 10px;
+}
+
+/* Media Queries for Responsiveness (Diseño Adaptativo) */
+@media (max-width: 768px) {
+    
+    .AH-admin-dashboard-layout {
+        /* En pantallas pequeñas, el diseño es de una sola columna */
+        grid-template-columns: 1fr; 
+        height: auto; 
+    }
+
+    .AH-mainHome {
+        grid-column: 1 / 2; 
+        padding: 15px; 
+        margin-left: 0; 
+    }
+
+    .AH-app h1 {
+        font-size: 2em;
+    }
+}

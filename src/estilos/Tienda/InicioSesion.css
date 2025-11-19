@@ -1,0 +1,139 @@
+
+.IS-cardInicioSesion {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh; 
+    padding: 20px;
+    background-color: #f4f7f6; 
+    box-sizing: border-box;
+}
+
+.IS-cardInicioSesion > div:not(.Logo), .IS-cardInicioSesion > h2, .IS-cardInicioSesion > form {
+    background: #ffffff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px; 
+    box-sizing: border-box;
+}
+
+.IS-cardInicioSesion > h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 1.6em;
+    padding: 20px 40px 0 40px; 
+    box-shadow: none; 
+    background: transparent;
+}
+
+.IS-botonIS-home {
+    position: absolute; 
+    top: 20px;
+    left: 20px;
+    padding: 10px 15px;
+    background-color: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    z-index: 10;
+}
+
+.IS-botonIS-home:hover {
+    background-color: #0056b3;
+}
+
+.IS-Logo {
+    text-align: center;
+    margin-bottom: 0px; 
+}
+
+.IS-PaginaLogo {
+    width: 100px; 
+    height: auto;
+}
+
+#loginForm {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; 
+    padding-top: 0; 
+}
+
+.IS-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.IS-field label {
+    color: #555;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.IS-field input {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1em;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.IS-field input:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.2);
+}
+
+.IS-error {
+    color: #dc3545; 
+    font-size: 0.8em;
+    margin-top: 5px;
+    padding-left: 2px;
+    min-height: 18px; 
+}
+
+.IS-success {
+    color: #28a745; 
+}
+
+#IS-message {
+    text-align: center;
+    font-size: 0.95em;
+    font-weight: 500;
+    margin-top: 5px;
+}
+
+#IS-message p {
+    margin: 0;
+    padding: 5px 0;
+}
+
+#loginForm button[type="submit"] {
+    background-color: #007bff; 
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 10px;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+#loginForm button[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+#loginForm button[type="submit"]:active {
+    transform: scale(0.98);
+}
