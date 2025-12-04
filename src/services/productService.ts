@@ -1,116 +1,123 @@
-import api from './api';
+import axios from 'axios';
+import { Product } from '../types';
+
+const API_URL = 'http://localhost:8080/api/products';
 
 /**
- * Servicio de productos
- * IE3.2.2 - Integración Frontend-Backend
+ * Servicio para manejar operaciones CRUD de productos
+ * IE3.2.2 - Integración Backend-Frontend vía API REST
  */
 
-export interface Product {
-    id: number;
-    name: string;
-    description: string;
-    price: number;
-    stock: number;
-    category: string;
-    imageUrl: string;
-    active: boolean;
-}
+/**
+ * Obtener todos los productos (público - no requiere autenticación)
+ */
+const getAllProducts = async (): Promise<Product[]> => {
+  try {
+    const response = await axios.get<Product[]>(API_URL);
+    return response.data;
+  } catch (error) {
+    console.error('Error obteniendo productos:', error);
+    throw error;
+  }
+};
 
-export interface ApiResponse<T> {
-    success: boolean;
-    message: string;
-    data: T;
-}
+/**
+ * Obtener un producto por ID (público)
+ */
+const getProductById = async (id: number): Promise<Product> => {
+  try {
+    const response = await axios.get<Product>(`${API_URL}/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error obteniendo producto ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Crear un nuevo producto (requiere autenticación ADMIN)
+ */
+const createProduct = async (productData: Omit<Product, 'id'>): Promise<Product> => {
+  try {
+    // El token JWT se agrega automáticamente por el interceptor de axios
+    const response = await axios.post<Product>(API_URL, productData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creando producto:', error);
+    throw error;
+  }
+};
+
+/**
+ * Actualizar un producto existente (requiere autenticación ADMIN)
+ */
+const updateProduct = async (id: number, productData: Omit<Product, 'id'>): Promise<Product> => {
+  try {
+    const response = await axios.put<Product>(`${API_URL}/${id}`, productData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error actualizando producto ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Eliminar un producto (requiere autenticación ADMIN)
+ */
+const deleteProduct = async (id: number): Promise<void> => {
+  try {
+    await axios.delete(`${API_URL}/${id}`);
+  } catch (error) {
+    console.error(`Error eliminando producto ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Buscar productos por nombre o categoría (público)
+ */
+const searchProducts = async (searchTerm: string): Promise<Product[]> => {
+  try {
+    const response = await axios.get<Product[]>(`${API_URL}/search`, {
+      params: { q: searchTerm }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error buscando productos:', error);
+    // Si el endpoint de búsqueda no existe, filtrar localmente
+    const allProducts = await getAllProducts();
+    return allProducts.filter(product => 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
+};
+
+/**
+ * Obtener productos por categoría (público)
+ */
+const getProductsByCategory = async (category: string): Promise<Product[]> => {
+  try {
+    const response = await axios.get<Product[]>(`${API_URL}/category/${category}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error obteniendo productos por categoría:', error);
+    // Fallback: filtrar localmente
+    const allProducts = await getAllProducts();
+    return allProducts.filter(product => 
+      product.category.toLowerCase() === category.toLowerCase()
+    );
+  }
+};
 
 const productService = {
-    /**
-     * Obtener todos los productos
-     */
-    getAllProducts: async (): Promise<Product[]> => {
-        const response = await api.get<ApiResponse<Product[]>>('/products');
-        return response.data.data;
-    },
-
-    /**
-     * Obtener productos activos
-     */
-    getActiveProducts: async (): Promise<Product[]> => {
-        const response = await api.get<ApiResponse<Product[]>>('/products/active');
-        return response.data.data;
-    },
-
-    /**
-     * Obtener productos disponibles (con stock)
-     */
-    getAvailableProducts: async (): Promise<Product[]> => {
-        const response = await api.get<ApiResponse<Product[]>>('/products/available');
-        return response.data.data;
-    },
-
-    /**
-     * Obtener producto por ID
-     */
-    getProductById: async (id: number): Promise<Product> => {
-        const response = await api.get<ApiResponse<Product>>(`/products/${id}`);
-        return response.data.data;
-    },
-
-    /**
-     * Buscar productos por categoría
-     */
-    getProductsByCategory: async (category: string): Promise<Product[]> => {
-        const response = await api.get<ApiResponse<Product[]>>(`/products/category/${category}`);
-        return response.data.data;
-    },
-
-    /**
-     * Buscar productos por nombre
-     */
-    searchProducts: async (name: string): Promise<Product[]> => {
-        const response = await api.get<ApiResponse<Product[]>>(`/products/search`, {
-            params: { name }
-        });
-        return response.data.data;
-    },
-
-    /**
-     * Crear producto (Solo ADMIN)
-     */
-    createProduct: async (product: Omit<Product, 'id'>): Promise<Product> => {
-        const response = await api.post<ApiResponse<Product>>('/products', product);
-        return response.data.data;
-    },
-
-    /**
-     * Actualizar producto (Solo ADMIN)
-     */
-    updateProduct: async (id: number, product: Partial<Product>): Promise<Product> => {
-        const response = await api.put<ApiResponse<Product>>(`/products/${id}`, product);
-        return response.data.data;
-    },
-
-    /**
-     * Eliminar producto (Solo ADMIN)
-     */
-    deleteProduct: async (id: number): Promise<void> => {
-        await api.delete(`/products/${id}`);
-    },
-
-    /**
-     * Desactivar producto (Solo ADMIN)
-     */
-    deactivateProduct: async (id: number): Promise<void> => {
-        await api.patch(`/products/${id}/deactivate`);
-    },
-
-    /**
-     * Actualizar stock (Solo ADMIN)
-     */
-    updateStock: async (id: number, quantity: number): Promise<void> => {
-        await api.patch(`/products/${id}/stock`, null, {
-            params: { quantity }
-        });
-    }
+  getAllProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  searchProducts,
+  getProductsByCategory
 };
 
 export default productService;

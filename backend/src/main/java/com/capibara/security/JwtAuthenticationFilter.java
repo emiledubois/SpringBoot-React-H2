@@ -19,7 +19,12 @@ import java.util.List;
 
 /**
  * Filtro para autenticación JWT
- * IE3.3.1 - Autenticación JWT
+ *  Autenticación JWT
+ * 
+ * Este filtro intercepta todas las peticiones HTTP y:
+ * 1. Verifica si la ruta es pública (no requiere autenticación)
+ * 2. Si no es pública, valida el token JWT
+ * 3. Si el token es válido, establece la autenticación en el contexto
  */
 @Component
 @RequiredArgsConstructor
@@ -28,13 +33,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
 
-    // ← AGREGAR ESTO: Lista de rutas públicas que NO requieren JWT
+    /**
+     * Lista de rutas públicas que NO requieren JWT
+     * Estas rutas son accesibles sin autenticación
+     */
     private static final List<String> PUBLIC_PATHS = Arrays.asList(
-            "/api/auth/",
-            "/api/products",
-            "/swagger-ui",
-            "/v3/api-docs",
-            "/h2-console"
+            "/api/auth",          // Todas las rutas de autenticación (/login, /register)
+          //  "/api/products",      // Productos - GET público, POST/PUT/DELETE requiere auth
+            "/swagger-ui",        // Swagger UI
+            "/v3/api-docs",       // OpenAPI docs
+            "/h2-console",        // H2 Console (solo desarrollo)
+            "/actuator",          // Spring Actuator
+            "/error"              // Página de error
     );
 
     @Override
@@ -44,56 +54,92 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // ← AGREGAR ESTO: Obtener la ruta de la petición
+        // Obtener la ruta de la petición
         String requestPath = request.getServletPath();
+        String method = request.getMethod();
 
-        // ← AGREGAR ESTO: Si es una ruta pública, saltarse el filtro JWT
-        if (isPublicPath(requestPath)) {
+        // PASO 1: Permitir requests OPTIONS (CORS preflight)
+        if ("OPTIONS".equalsIgnoreCase(method)) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        // PASO 2: Verificar si es una ruta pública
+        if (isPublicPath(requestPath)) {
+            logger.debug("Ruta pública detectada: " + requestPath + " - Saltando validación JWT");
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // PASO 3: Obtener el header Authorization
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String userEmail;
 
-        // Verificar si hay header Authorization con Bearer token
+        // Si no hay header Authorization o no empieza con "Bearer ", continuar sin autenticar
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            logger.debug("No se encontró token JWT en la petición a: " + requestPath);
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Extraer token
+        // PASO 4: Extraer el token (quitar "Bearer " del inicio)
         jwt = authHeader.substring(7);
         
         try {
-            // Extraer email del token
+            // PASO 5: Extraer el email del usuario del token
             userEmail = jwtService.extractUsername(jwt);
 
-            // Si hay email y no hay autenticación previa
+            // PASO 6: Si hay email y no hay autenticación previa en el contexto
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                
+                // Cargar los detalles del usuario desde la base de datos
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
 
-                // Validar token
+                // PASO 7: Validar el token
                 if (jwtService.validateToken(jwt, userDetails)) {
+                    // Token válido - Crear objeto de autenticación
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
                             userDetails.getAuthorities()
                     );
+                    
+                    // Agregar detalles adicionales de la petición
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    
+                    // PASO 8: Establecer la autenticación en el contexto de seguridad
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    
+                    logger.debug("Usuario autenticado exitosamente: " + userEmail + " para ruta: " + requestPath);
+                } else {
+                    logger.warn("Token JWT inválido para usuario: " + userEmail);
                 }
             }
         } catch (Exception e) {
-            logger.error("No se pudo establecer la autenticación del usuario: " + e.getMessage());
+            logger.error("Error al procesar token JWT: " + e.getMessage());
+            // No lanzamos la excepción, dejamos que Spring Security maneje el error
         }
 
+        // PASO 9: Continuar con la cadena de filtros
         filterChain.doFilter(request, response);
     }
 
-    // ← AGREGAR ESTE MÉTODO: Verificar si la ruta es pública
+    /**
+     * Verifica si la ruta es pública (no requiere autenticación)
+     * 
+     * @param path Ruta de la petición
+     * @return true si es pública, false si requiere autenticación
+     */
     private boolean isPublicPath(String path) {
-        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+        // Verificar si la ruta comienza con alguna de las rutas públicas
+        boolean isPublic = PUBLIC_PATHS.stream()
+                .anyMatch(publicPath -> path.startsWith(publicPath));
+        
+        if (isPublic) {
+            logger.debug("Ruta pública: " + path);
+        }
+        
+        return isPublic;
     }
 }
