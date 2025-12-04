@@ -27,6 +27,13 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
   const [step, setStep] = useState<'form' | 'confirmation'>('form');
   const [orderNumber, setOrderNumber] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  
+  // Guardar valores del pedido antes de vaciar el carrito
+  const [orderSummary, setOrderSummary] = useState({
+    subtotal: 0,
+    shipping: 0,
+    total: 0
+  });
 
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -146,7 +153,8 @@ Método de pago: ${formData.paymentMethod === 'credit' ? 'Tarjeta de Crédito' :
       // Preparar items de la orden
       const orderItems = cart.map(item => ({
         productId: item.id,
-        quantity: item.quantity
+        quantity: item.quantity,
+        price: item.price  // ✅ Agregar el precio requerido por OrderItem
       }));
 
       // Crear la orden en el backend
@@ -160,11 +168,22 @@ Método de pago: ${formData.paymentMethod === 'credit' ? 'Tarjeta de Crédito' :
 
       console.log('Orden creada exitosamente:', order);
 
+      // Calcular y GUARDAR valores ANTES de vaciar el carrito
+      const subtotal = calculateTotal();
+      const shipping = calculateShipping();
+      const total = subtotal + shipping;
+      
+      setOrderSummary({
+        subtotal,
+        shipping,
+        total
+      });
+
       // Generar número de orden
       const generatedOrderNumber = `ORD-${order.id}-${Date.now()}`;
       setOrderNumber(generatedOrderNumber);
       
-      // Vaciar carrito
+      // Vaciar carrito DESPUÉS de guardar los valores
       onClearCart();
       
       // Ir a pantalla de confirmación
@@ -233,7 +252,7 @@ Método de pago: ${formData.paymentMethod === 'credit' ? 'Tarjeta de Crédito' :
 
                 <div className="mb-4">
                   <p className="mb-2">
-                    <strong>Total pagado:</strong> {formatPrice(calculateTotal() + calculateShipping())}
+                    <strong>Total pagado:</strong> {formatPrice(orderSummary.total)}
                   </p>
                   <p className="mb-2">
                     <strong>Email de confirmación:</strong> {formData.email}
@@ -241,6 +260,14 @@ Método de pago: ${formData.paymentMethod === 'credit' ? 'Tarjeta de Crédito' :
                   <p className="mb-0">
                     <strong>Dirección de envío:</strong> {formData.address}, {formData.city}
                   </p>
+                </div>
+
+                <div className="alert alert-light border">
+                  <p className="mb-1 small"><strong>Resumen del pedido:</strong></p>
+                  <p className="mb-1 small">Subtotal: {formatPrice(orderSummary.subtotal)}</p>
+                  <p className="mb-1 small">Envío: {orderSummary.shipping === 0 ? 'GRATIS' : formatPrice(orderSummary.shipping)}</p>
+                  <hr className="my-2" />
+                  <p className="mb-0"><strong>Total: {formatPrice(orderSummary.total)}</strong></p>
                 </div>
 
                 <hr />
