@@ -1,106 +1,144 @@
 import api from './api';
 
-/**
- * Servicio de autenticación
- * IE3.3.1 - Autenticación JWT
- * IE3.3.2 - Gestión de sesiones
- */
-
-export interface LoginRequest {
-    email: string;
-    password: string;
+interface LoginRequest {
+  email: string;
+  password: string;
 }
 
-export interface RegisterRequest {
+interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+}
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  roles: string[];
+}
+
+interface AuthResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: number;
     name: string;
     email: string;
-    password: string;
-}
-
-export interface AuthResponse {
-    success: boolean;
-    message: string;
-    data: {
-        id: number;
-        name: string;
-        email: string;
-        roles: string[];
-        token: string;
-        type: string;
-    };
+    roles: string[];
+    token: string;
+    type: string;
+  };
 }
 
 const authService = {
-    /**
-     * Iniciar sesión
-     */
-    login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-        const response = await api.post<AuthResponse>('/auth/login', credentials);
-
-        if (response.data.success && response.data.data) {
-            // Guardar token y datos de usuario en localStorage
-            localStorage.setItem('token', response.data.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.data));
-        }
-
-        return response.data;
-    },
-
-    /**
-     * Registrar nuevo usuario
-     */
-    register: async (userData: RegisterRequest): Promise<AuthResponse> => {
-        const response = await api.post<AuthResponse>('/auth/register', userData);
-
-        if (response.data.success && response.data.data) {
-            // Guardar token y datos de usuario en localStorage
-            localStorage.setItem('token', response.data.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.data));
-        }
-
-        return response.data;
-    },
-
-    /**
-     * Cerrar sesión
-     */
-    logout: () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-    },
-
-    /**
-     * Obtener usuario actual desde localStorage
-     */
-    getCurrentUser: () => {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            return JSON.parse(userStr);
-        }
-        return null;
-    },
-
-    /**
-     * Verificar si hay usuario autenticado
-     */
-    isAuthenticated: (): boolean => {
-        return !!localStorage.getItem('token');
-    },
-
-    /**
-     * Verificar si el usuario es admin
-     */
-    isAdmin: (): boolean => {
-        const user = authService.getCurrentUser();
-        return user?.roles?.includes('ROLE_ADMIN') || false;
-    },
-
-    /**
-     * Obtener token
-     */
-    getToken: (): string | null => {
-        return localStorage.getItem('token');
+  /**
+   * Login - Retorna formato compatible con AuthContext
+   */
+  login: async (credentials: LoginRequest): Promise<AuthResponse> => {
+    console.log(' [authService] Iniciando login...');
+    console.log(' [authService] Email:', credentials.email);
+    
+    try {
+      // ✅ CORRECTO: /api/auth/login
+      const response = await api.post<AuthResponse>('/api/auth/login', credentials);
+      
+      console.log(' [authService] Response:', response.data);
+      
+      // Guardar token en localStorage
+      const token = response.data.data.token;
+      const user = {
+        id: response.data.data.id,
+        name: response.data.data.name,
+        email: response.data.data.email,
+        roles: response.data.data.roles
+      };
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      console.log(' [authService] Token y user guardados en localStorage');
+      
+      return response.data;
+      
+    } catch (error: any) {
+      console.error(' [authService] Error en login:', error);
+      throw error;
     }
+  },
+
+  /**
+   * Register - Retorna formato compatible con AuthContext
+   */
+  register: async (userData: RegisterRequest): Promise<AuthResponse> => {
+    console.log(' [authService] Registrando usuario...');
+    
+    try {
+      //  CORRECTO: /api/auth/register
+      const response = await api.post<AuthResponse>('/api/auth/register', userData);
+      
+      console.log(' [authService] Registro exitoso:', response.data);
+      
+      // Guardar token en localStorage
+      const token = response.data.data.token;
+      const user = {
+        id: response.data.data.id,
+        name: response.data.data.name,
+        email: response.data.data.email,
+        roles: response.data.data.roles
+      };
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      console.log(' [authService] Token y user guardados en localStorage');
+      
+      return response.data;
+      
+    } catch (error: any) {
+      console.error(' [authService] Error en registro:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Logout
+   */
+  logout: () => {
+    console.log('🚪 [authService] Cerrando sesión');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  },
+
+  /**
+   * Obtener usuario actual
+   */
+  getCurrentUser: (): User | null => {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  },
+
+  /**
+   * Obtener token
+   */
+  getToken: (): string | null => {
+    return localStorage.getItem('token');
+  },
+
+  /**
+   * Verificar si está autenticado
+   */
+  isAuthenticated: (): boolean => {
+    return !!localStorage.getItem('token');
+  },
+
+  /**
+   * Verificar si es admin
+   */
+  isAdmin: (): boolean => {
+    const user = authService.getCurrentUser();
+    return user?.roles.includes('ROLE_ADMIN') || false;
+  }
 };
 
 export default authService;

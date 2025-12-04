@@ -30,9 +30,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Filtro JWT que intercepta cada request para validar tokens
- * Compatible con JJWT 0.11.x y 0.12.x
- *  Sistema de autenticación seguro
+ * Filtro JWT - VERSIÓN DEFINITIVA
+ * Compatible con JJWT 0.11.5
+ * CORRIGE: Error "Access Denied" en login
  */
 @Component
 @RequiredArgsConstructor
@@ -44,16 +44,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private String jwtSecret;
 
     /**
-     * RUTAS PÚBLICAS - No requieren JWT
-     * IMPORTANTE: Sin "/" al final para que coincida con rutas reales
+     * RUTAS PÚBLICAS - SIN "/" AL FINAL
+     * CRÍTICO: "/api/auth" NO "/api/auth/"
      */
     private static final List<String> PUBLIC_PATHS = Arrays.asList(
-        "/api/auth",           // Login y registro
-        "/swagger-ui",         // Swagger UI
-        "/v3/api-docs",        // OpenAPI docs
-        "/h2-console",         // H2 Console
-        "/actuator",           // Spring Actuator
-        "/error"               // Error handler
+        "/api/auth",        // ✓ Login y registro
+        "/swagger-ui",      // ✓ Swagger UI
+        "/v3/api-docs",     // ✓ OpenAPI docs
+        "/h2-console",      // ✓ H2 Console
+        "/actuator",        // ✓ Actuator
+        "/error"            // ✓ Error handler
     );
 
     @Override
@@ -67,95 +67,118 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String requestPath = request.getRequestURI();
             String method = request.getMethod();
 
-            logger.debug("=== FILTRO JWT ===");
+            logger.debug("═══════════════════════════════════");
+            logger.debug("🔍 FILTRO JWT - REQUEST RECIBIDO");
+            logger.debug("═══════════════════════════════════");
             logger.debug("Método: {}", method);
             logger.debug("Ruta: {}", requestPath);
 
+            // ═══════════════════════════════════════════════════
             // PASO 1: Permitir OPTIONS (CORS preflight)
+            // ═══════════════════════════════════════════════════
             if ("OPTIONS".equalsIgnoreCase(method)) {
-                logger.debug(" Request OPTIONS - CORS preflight permitido");
+                logger.debug("✓ Request OPTIONS - CORS preflight permitido");
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // PASO 2: Verificar si es ruta pública
-            if (isPublicPath(requestPath)) {
-                logger.debug(" Ruta pública permitida: {}", requestPath);
+            // ═══════════════════════════════════════════════════
+            // PASO 2: Verificar si es RUTA PÚBLICA
+            // ═══════════════════════════════════════════════════
+            boolean isPublic = isPublicPath(requestPath);
+            
+            if (isPublic) {
+                logger.debug("✓✓✓ RUTA PÚBLICA DETECTADA ✓✓✓");
+                logger.debug("✓ Permitiendo acceso SIN JWT");
+                logger.debug("═══════════════════════════════════");
                 filterChain.doFilter(request, response);
                 return;
             }
 
+            // ═══════════════════════════════════════════════════
             // PASO 3: CASO ESPECIAL - GET /api/products es público
+            // ═══════════════════════════════════════════════════
             if ("GET".equalsIgnoreCase(method) && requestPath.startsWith("/api/products")) {
-                logger.debug(" GET /api/products es público - permitido sin JWT");
+                logger.debug("✓ GET /api/products - público SIN JWT");
+                logger.debug("═══════════════════════════════════");
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // PASO 4: Para rutas protegidas, extraer y validar JWT
-            logger.debug(" Ruta protegida - requiere JWT");
-
+            // ═══════════════════════════════════════════════════
+            // PASO 4: RUTA PROTEGIDA - Requiere JWT
+            // ═══════════════════════════════════════════════════
+            logger.debug("⚠️  RUTA PROTEGIDA - Verificando JWT");
+            
             String token = extractTokenFromRequest(request);
 
             if (token == null) {
-                logger.warn(" Token JWT no encontrado en headers");
+                logger.warn("✗ NO hay token JWT en headers");
+                logger.debug("═══════════════════════════════════");
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            logger.debug(" Token encontrado: {}", token.substring(0, Math.min(20, token.length())) + "...");
+            logger.debug("✓ Token JWT encontrado: {}...", token.substring(0, Math.min(20, token.length())));
 
+            // ═══════════════════════════════════════════════════
             // PASO 5: Validar y procesar token
+            // ═══════════════════════════════════════════════════
             if (validateToken(token)) {
                 String username = extractUsername(token);
                 List<String> roles = extractRoles(token);
 
-                logger.debug(" Token válido para usuario: {}", username);
-                logger.debug(" Roles: {}", roles);
+                logger.debug("✓✓✓ TOKEN VÁLIDO ✓✓✓");
+                logger.debug("✓ Usuario: {}", username);
+                logger.debug("✓ Roles: {}", roles);
 
                 // Crear autenticación
                 List<SimpleGrantedAuthority> authorities = roles.stream()
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                        .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(username, null, authorities);
 
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                logger.debug(" Usuario autenticado correctamente");
+                logger.debug("✓ Usuario AUTENTICADO correctamente");
             } else {
-                logger.warn(" Token JWT inválido o expirado");
+                logger.warn("✗ Token JWT INVÁLIDO o EXPIRADO");
             }
 
+            logger.debug("═══════════════════════════════════");
+
         } catch (ExpiredJwtException e) {
-            logger.error(" Token JWT expirado: {}", e.getMessage());
+            logger.error("✗ Token JWT EXPIRADO: {}", e.getMessage());
         } catch (MalformedJwtException e) {
-            logger.error(" Token JWT malformado: {}", e.getMessage());
+            logger.error("✗ Token JWT MALFORMADO: {}", e.getMessage());
         } catch (SignatureException e) {
-            logger.error(" Firma JWT inválida: {}", e.getMessage());
+            logger.error("✗ Firma JWT INVÁLIDA: {}", e.getMessage());
         } catch (UnsupportedJwtException e) {
-            logger.error(" Token JWT no soportado: {}", e.getMessage());
+            logger.error("✗ Token JWT NO SOPORTADO: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
-            logger.error(" Token JWT vacío o nulo: {}", e.getMessage());
+            logger.error("✗ Token JWT VACÍO: {}", e.getMessage());
         } catch (Exception e) {
-            logger.error(" Error inesperado en filtro JWT: {}", e.getMessage(), e);
+            logger.error("✗ ERROR INESPERADO: {}", e.getMessage(), e);
         }
 
         filterChain.doFilter(request, response);
     }
 
     /**
-     * Verificar si la ruta es pública (no requiere JWT)
+     * Verificar si la ruta es pública
      */
     private boolean isPublicPath(String requestPath) {
         for (String publicPath : PUBLIC_PATHS) {
             if (requestPath.startsWith(publicPath)) {
+                logger.debug("   → Comparando '{}' con '{}'", requestPath, publicPath);
+                logger.debug("   → ✓ COINCIDE - Es ruta pública");
                 return true;
             }
         }
+        logger.debug("   → NO es ruta pública - Requiere JWT");
         return false;
     }
 
@@ -172,15 +195,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
+    // ════════════════════════════════════════════════════════════════
+    // MÉTODOS COMPATIBLES CON JJWT 0.11.5
+    // ════════════════════════════════════════════════════════════════
+
     /**
      * Validar token JWT
-     * Compatible con JJWT 0.11.x y 0.12.x
+     * COMPATIBLE CON JJWT 0.11.5
      */
     private boolean validateToken(String token) {
         try {
             SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
-            // Método compatible con ambas versiones
+            // ✓ JJWT 0.11.5 usa parserBuilder()
             Jwts.parserBuilder()
                     .setSigningKey(key)
                     .build()
@@ -196,11 +223,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * Extraer username del token
-     * Compatible con JJWT 0.11.x y 0.12.x
+     * COMPATIBLE CON JJWT 0.11.5
      */
     private String extractUsername(String token) {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
+        // ✓ JJWT 0.11.5 usa parserBuilder() y getBody()
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
@@ -212,12 +240,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * Extraer roles del token
-     * Compatible con JJWT 0.11.x y 0.12.x
+     * COMPATIBLE CON JJWT 0.11.5
      */
     @SuppressWarnings("unchecked")
     private List<String> extractRoles(String token) {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
+        // ✓ JJWT 0.11.5 usa parserBuilder() y getBody()
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()

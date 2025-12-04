@@ -19,8 +19,8 @@ import java.util.stream.Collectors;
 
 /**
  * Servicio para generación y validación de tokens JWT
- * Compatible con JJWT 0.11.x y 0.12.x
- * IE3.3.1 - Sistema de autenticación seguro
+ * Compatible con JJWT 0.11.x
+ * 
  */
 @Service
 public class JwtService {
@@ -33,15 +33,16 @@ public class JwtService {
 
     /**
      * Generar token JWT para un usuario
+     * CRÍTICO: Mantiene el prefijo ROLE_ en los roles
      */
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
         
-        // Agregar roles al token
+        // Agregar roles al token CON prefijo ROLE_
         List<String> roles = userDetails.getAuthorities()
                 .stream()
                 .map(GrantedAuthority::getAuthority)
-                .map(role -> role.replace("ROLE_", ""))
+                //  NO eliminar ROLE_, mantenerlo tal cual
                 .collect(Collectors.toList());
         
         claims.put("roles", roles);

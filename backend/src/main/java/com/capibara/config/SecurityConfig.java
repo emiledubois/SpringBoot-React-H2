@@ -4,6 +4,7 @@ import com.capibara.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -11,7 +12,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -23,11 +23,10 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.List;
 
 /**
- * Configuración de seguridad con JWT
- * IE3.3.1 - Sistema de autenticación seguro
+ * Configuración de Seguridad - VERSIÓN CON ORDERS
+ * Permite crear órdenes con JWT
  */
 @Configuration
 @EnableWebSecurity
@@ -38,143 +37,144 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            // Deshabilitar CSRF (usamos JWT)
-            .csrf(AbstractHttpConfigurer::disable)
-
-            // Configurar CORS
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-            // Configurar autorización de rutas
-            .authorizeHttpRequests(auth -> auth
-                // ============================================
-                // RUTAS PÚBLICAS (sin autenticación)
-                // ============================================
-                .requestMatchers("/api/auth/**").permitAll()           // Login y registro
-                .requestMatchers("/swagger-ui/**").permitAll()         // Swagger UI
-                .requestMatchers("/v3/api-docs/**").permitAll()        // OpenAPI docs
-                .requestMatchers("/h2-console/**").permitAll()         // H2 Console
-                .requestMatchers("/actuator/**").permitAll()           // Actuator
-                .requestMatchers("/error").permitAll()                 // Error handler
-
-                // ============================================
-                // PRODUCTOS - Permisos por método HTTP
-                // ============================================
-                .requestMatchers("GET", "/api/products/**").permitAll()           // Ver productos: público
-                .requestMatchers("POST", "/api/products/**").hasRole("ADMIN")     // Crear: solo ADMIN
-                .requestMatchers("PUT", "/api/products/**").hasRole("ADMIN")      // Editar: solo ADMIN
-                .requestMatchers("DELETE", "/api/products/**").hasRole("ADMIN")   // Eliminar: solo ADMIN
-
-                // ============================================
-                // ÓRDENES - Solo usuarios autenticados
-                // ============================================
-                .requestMatchers("/api/orders/**").hasAnyRole("USER", "ADMIN")
-
-                // ============================================
-                // USUARIOS - Solo ADMIN
-                // ============================================
-                .requestMatchers("/api/users/**").hasRole("ADMIN")
-
-                // ============================================
-                // Cualquier otra ruta requiere autenticación
-                // ============================================
-                .anyRequest().authenticated()
-            )
-
-            // Gestión de sesiones: STATELESS (sin sesiones, solo JWT)
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-
-            // Proveedor de autenticación
-            .authenticationProvider(authenticationProvider())
-
-            // Agregar filtro JWT ANTES del filtro de autenticación estándar
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-
-            // Configurar frames (para H2 Console)
-            .headers(headers -> headers
-                .frameOptions(frameOptions -> frameOptions.sameOrigin())
-            );
-
-        return http.build();
-    }
-
     /**
-     * Configuración de CORS
-     * Permite requests desde el frontend
+     * Configuración CORS
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
-        // Orígenes permitidos (frontend)
+        
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:5173",    // Vite dev server
-            "http://localhost:3000",    // Create React App
-            "http://localhost:5174",    // Vite alternativo
-            "http://localhost:8081"     // Otro posible puerto
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "http://localhost:5174",
+                "http://localhost:8081"
         ));
-
-        // Métodos HTTP permitidos
+        
         configuration.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
         ));
-
-        // Headers permitidos
-        configuration.setAllowedHeaders(Arrays.asList(
-            "Authorization",
-            "Content-Type",
-            "Accept",
-            "Origin",
-            "X-Requested-With"
-        ));
-
-        // Permitir credenciales (cookies, auth headers)
-        configuration.setAllowCredentials(true);
-
-        // Headers expuestos al cliente
+        
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        
         configuration.setExposedHeaders(Arrays.asList(
-            "Authorization",
-            "Content-Type"
+                "Authorization", 
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Credentials"
         ));
-
-        // Max age para preflight requests
+        
+        configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-
-        // Aplicar configuración a todas las rutas
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-
+        
         return source;
     }
 
     /**
-     * Proveedor de autenticación con BCrypt
+     * Cadena de filtros de seguridad
      */
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                // CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                
+                // CSRF deshabilitado (API REST)
+                .csrf(csrf -> csrf.disable())
+                
+                // Configuración de autorización
+                .authorizeHttpRequests(auth -> auth
+                        // ═══════════════════════════════════════════════════
+                        // RUTAS PÚBLICAS (sin autenticación)
+                        // ═══════════════════════════════════════════════════
+                        .requestMatchers(
+                                "/api/auth/**",           // Login y registro
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/h2-console/**",
+                                "/actuator/**",
+                                "/error"
+                        ).permitAll()
+                        
+                        // GET /api/products es público (ver productos sin login)
+                        .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                        
+                        // ═══════════════════════════════════════════════════
+                        // RUTAS DE ADMINISTRADOR (requiere ROLE_ADMIN)
+                        // ═══════════════════════════════════════════════════
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        
+                        // POST, PUT, DELETE /api/products requiere ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/products").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
+                        
+                        // ═══════════════════════════════════════════════════
+                        // RUTAS DE ÓRDENES (requiere autenticación)
+                        // ═══════════════════════════════════════════════════
+                        // Crear orden: cualquier usuario autenticado
+                        .requestMatchers(HttpMethod.POST, "/api/orders").authenticated()
+                        
+                        // Ver mis órdenes: cualquier usuario autenticado
+                        .requestMatchers(HttpMethod.GET, "/api/orders/my").authenticated()
+                        
+                        // Ver todas las órdenes: solo ADMIN
+                        .requestMatchers(HttpMethod.GET, "/api/orders").hasRole("ADMIN")
+                        
+                        // Ver/actualizar orden específica: solo ADMIN
+                        .requestMatchers(HttpMethod.GET, "/api/orders/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("ADMIN")
+                        
+                        // ═══════════════════════════════════════════════════
+                        // RUTAS DE CARRITO (requiere autenticación)
+                        // ═══════════════════════════════════════════════════
+                        .requestMatchers("/api/cart/**").authenticated()
+                        
+                        // ═══════════════════════════════════════════════════
+                        // TODAS LAS DEMÁS RUTAS (requiere autenticación)
+                        // ═══════════════════════════════════════════════════
+                        .anyRequest().authenticated()
+                )
+                
+                // Sesiones stateless (JWT)
+                .sessionManagement(session -> 
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                
+                // Authentication provider
+                .authenticationProvider(authenticationProvider())
+                
+                // Agregar filtro JWT
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                
+                // Permitir frames de mismo origen (H2 Console)
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.sameOrigin())
+                );
+
+        return http.build();
+    }
+
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
     }
 
-    /**
-     * Encoder de contraseñas con BCrypt
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    /**
-     * Authentication Manager
-     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }

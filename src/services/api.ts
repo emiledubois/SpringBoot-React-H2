@@ -1,69 +1,75 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 /**
- * Instancia de Axios configurada con:
- * - Base URL del backend
- * - Interceptor que agrega JWT automáticamente
- * - Timeout de 10 segundos
+ * Instancia de Axios configurada para el backend
  */
-
 const api: AxiosInstance = axios.create({
   baseURL: 'http://localhost:8080',
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
 /**
- * INTERCEPTOR DE REQUEST
- * Agrega el token JWT automáticamente a cada petición
+ * Interceptor de REQUEST
+ * Agrega el token JWT SOLO si existe y NO es una ruta de autenticación
  */
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Obtener token del localStorage
     const token = localStorage.getItem('token');
     
-    if (token) {
-      // Agregar header Authorization
+    // ✓ CRÍTICO: NO agregar token a rutas de autenticación
+    const isAuthRoute = config.url?.includes('/auth/');
+    
+    if (token && !isAuthRoute) {
+      console.log(' Agregando token JWT a:', config.method?.toUpperCase(), config.url);
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Token agregado al request:', config.method?.toUpperCase(), config.url);
+    } else if (isAuthRoute) {
+      console.log(' Ruta de autenticación, NO se agrega token:', config.url);
     } else {
-      console.log('⚠️ No hay token para:', config.method?.toUpperCase(), config.url);
+      console.warn(' No hay token para:', config.method?.toUpperCase(), config.url);
     }
     
     return config;
   },
   (error) => {
-    console.error('❌ Error en interceptor de request:', error);
+    console.error(' Error en request interceptor:', error);
     return Promise.reject(error);
   }
 );
 
 /**
- * INTERCEPTOR DE RESPONSE
- * Maneja respuestas del servidor (opcional)
+ * Interceptor de RESPONSE
+ * Maneja errores de forma centralizada
  */
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Respuesta recibida de:', response.config.url, {
-      status: response.status,
-      data: response.data
-    });
+    console.log(' Respuesta exitosa:', response.config.url, '→', response.status);
     return response;
   },
-  (error) => {
-    console.error('❌ Error en respuesta:', {
+  (error: AxiosError) => {
+    console.error(' Error en respuesta:', {
       url: error.config?.url,
       status: error.response?.status,
       data: error.response?.data
     });
 
-    // Si el token expiró (401), podrías redirigir a login aquí
-    if (error.response?.status === 401) {
-      console.warn('⚠️ Token inválido o expirado');
-      // Opcional: localStorage.removeItem('token');
-      // Opcional: window.location.href = '/login';
+    // Si es 401 o 403, limpiar token inválido
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      const isAuthRoute = error.config?.url?.includes('/auth/');
+      
+      // Solo limpiar token si NO es ruta de autenticación
+      if (!isAuthRoute) {
+        console.warn(' Token inválido o expirado, limpiando localStorage');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Redirigir a login (opcional)
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
     }
 
     return Promise.reject(error);

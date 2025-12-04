@@ -1,41 +1,37 @@
 import api from './api';
 
-// ========================
-// INTERFACES
-// ========================
+interface OrderItem {
+  productId: number;
+  quantity: number;
+  price: number;
+}
 
-export interface CreateOrderRequest {
-  items: OrderItemRequest[];
-  shippingAddress: string;
+interface ShippingAddress {
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+}
+
+interface CreateOrderRequest {
+  items: OrderItem[];
+  shippingAddress: ShippingAddress;
+  paymentMethod: string;
   notes?: string;
 }
 
-export interface OrderItemRequest {
-  productId: number;
-  quantity: number;
-}
-
-export interface Order {
+interface Order {
   id: number;
   userId: number;
-  shippingAddress: string;
-  notes: string;
-  status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-  total: number;
-  createdAt: string;
   items: OrderItem[];
-}
-
-export interface OrderItem {
-  id: number;
-  product: {
-    id: number;
-    name: string;
-    price: number;
-  };
-  quantity: number;
-  price: number;
-  subtotal: number;
+  shippingAddress: ShippingAddress;
+  paymentMethod: string;
+  total: number;
+  status: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ApiResponse<T> {
@@ -44,172 +40,142 @@ interface ApiResponse<T> {
   data: T;
 }
 
-// ========================
-// ORDER SERVICE
-// ========================
-
 const orderService = {
   /**
-   * Crear una nueva orden
-   * POST /api/orders
-   * Requiere autenticación (JWT en header)
+   * Crear orden
+   * CRÍTICO: Requiere autenticación (token JWT)
    */
-  createOrder: async (request: CreateOrderRequest): Promise<Order> => {
+  createOrder: async (orderData: CreateOrderRequest): Promise<Order> => {
+    console.log(' [orderService] Creando orden...');
+    console.log(' [orderService] Items:', orderData.items.length);
+    console.log(' [orderService] Token:', localStorage.getItem('token') ? 'SÍ' : 'NO');
+    
     try {
-      console.log(' orderService.createOrder llamado con:', request);
+      //  CORRECTO: /api/orders (requiere JWT)
+      const response = await api.post<ApiResponse<Order>>('/api/orders', orderData);
       
-      // Verificar que hay items
-      if (!request.items || request.items.length === 0) {
-        throw new Error('La orden debe tener al menos un producto');
-      }
-
-      // Verificar que hay token
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No hay token de autenticación. Por favor inicia sesión.');
-      }
-
-      console.log(' Token encontrado:', token.substring(0, 20) + '...');
-      console.log(' Enviando POST a /api/orders');
-
-      // HACER EL REQUEST POST
-      const response = await api.post<ApiResponse<Order>>('/api/orders', request);
-
-      console.log(' Respuesta del servidor:', response);
-
-      // Extraer data de la respuesta
-      let order: Order;
-      if (response.data && 'data' in response.data) {
-        order = response.data.data;
-      } else {
-        order = response.data as any;
-      }
-
-      console.log(' Orden creada exitosamente:', order);
-      return order;
-
+      console.log(' [orderService] Orden creada:', response.data);
+      
+      return response.data.data;
+      
     } catch (error: any) {
-      console.error(' Error en orderService.createOrder:', error);
-
-      // Errores específicos
-      if (error.code === 'ERR_NETWORK') {
-        throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo.');
-      }
-
+      console.error(' [orderService] Error del servidor:', error.response || error);
+      
       if (error.response) {
         const status = error.response.status;
-        const data = error.response.data;
-
-        console.error('Error del servidor:', {
-          status,
-          data,
-          headers: error.response.headers
-        });
-
+        
         if (status === 401) {
-          throw new Error('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
+          throw new Error('Debes iniciar sesión para crear una orden');
         } else if (status === 403) {
-          throw new Error('No tienes permisos para crear órdenes.');
+          throw new Error('No tienes permisos para crear órdenes');
         } else if (status === 400) {
-          throw new Error(data.message || 'Datos de la orden inválidos.');
+          throw new Error('Datos de orden inválidos');
         } else {
-          throw new Error(data.message || 'Error al crear la orden');
+          throw new Error('Error al crear la orden');
         }
+      } else {
+        throw new Error('No se puede conectar con el servidor');
       }
+    }
+  },
 
+  /**
+   * Obtener órdenes del usuario actual
+   */
+  getMyOrders: async (): Promise<Order[]> => {
+    console.log(' [orderService] Obteniendo mis órdenes...');
+    
+    try {
+      //  CORRECTO: /api/orders/my (requiere JWT)
+      const response = await api.get<ApiResponse<Order[]>>('/api/orders/my');
+      
+      console.log(' [orderService] Órdenes obtenidas:', response.data.data.length);
+      
+      return response.data.data;
+      
+    } catch (error: any) {
+      console.error(' [orderService] Error obteniendo órdenes:', error);
       throw error;
     }
   },
 
   /**
-   * Obtener todas las órdenes del usuario actual
-   * GET /api/orders
-   */
-  getMyOrders: async (): Promise<Order[]> => {
-    try {
-      console.log(' Obteniendo mis órdenes...');
-      const response = await api.get<ApiResponse<Order[]>>('/api/orders');
-
-      let orders: Order[];
-      if (response.data && 'data' in response.data) {
-        orders = response.data.data;
-      } else {
-        orders = response.data as any;
-      }
-
-      console.log(' Órdenes obtenidas:', orders.length);
-      return orders;
-
-    } catch (error: any) {
-      console.error(' Error al obtener órdenes:', error);
-
-      if (error.response?.status === 401) {
-        throw new Error('Debes iniciar sesión para ver tus órdenes');
-      }
-
-      throw new Error('Error al cargar las órdenes');
-    }
-  },
-
-  /**
    * Obtener una orden por ID
-   * GET /api/orders/{id}
    */
-  getOrderById: async (orderId: number): Promise<Order> => {
+  getOrderById: async (id: number): Promise<Order> => {
+    console.log(' [orderService] Obteniendo orden:', id);
+    
     try {
-      console.log(` Obteniendo orden ${orderId}...`);
-      const response = await api.get<ApiResponse<Order>>(`/api/orders/${orderId}`);
-
-      let order: Order;
-      if (response.data && 'data' in response.data) {
-        order = response.data.data;
-      } else {
-        order = response.data as any;
-      }
-
-      console.log(' Orden obtenida:', order);
-      return order;
-
+      //  CORRECTO: /api/orders/:id (requiere JWT)
+      const response = await api.get<ApiResponse<Order>>(`/api/orders/${id}`);
+      
+      console.log(' [orderService] Orden obtenida:', response.data.data);
+      
+      return response.data.data;
+      
     } catch (error: any) {
-      console.error(' Error al obtener orden:', error);
-
-      if (error.response?.status === 404) {
-        throw new Error('Orden no encontrada');
-      } else if (error.response?.status === 401) {
-        throw new Error('Debes iniciar sesión');
-      }
-
-      throw new Error('Error al cargar la orden');
+      console.error(' [orderService] Error obteniendo orden:', error);
+      throw error;
     }
   },
 
   /**
-   * Cancelar una orden
-   * PUT /api/orders/{id}/cancel
+   * Obtener todas las órdenes (solo ADMIN)
    */
-  cancelOrder: async (orderId: number): Promise<Order> => {
+  getAllOrders: async (): Promise<Order[]> => {
+    console.log(' [orderService] Obteniendo todas las órdenes (ADMIN)...');
+    
     try {
-      console.log(` Cancelando orden ${orderId}...`);
-      const response = await api.put<ApiResponse<Order>>(`/api/orders/${orderId}/cancel`);
-
-      let order: Order;
-      if (response.data && 'data' in response.data) {
-        order = response.data.data;
-      } else {
-        order = response.data as any;
-      }
-
-      console.log(' Orden cancelada:', order);
-      return order;
-
+      //  CORRECTO: /api/orders (requiere JWT + ROLE_ADMIN)
+      const response = await api.get<ApiResponse<Order[]>>('/api/orders');
+      
+      console.log(' [orderService] Órdenes obtenidas:', response.data.data.length);
+      
+      return response.data.data;
+      
     } catch (error: any) {
-      console.error(' Error al cancelar orden:', error);
+      console.error(' [orderService] Error obteniendo órdenes:', error);
+      throw error;
+    }
+  },
 
-      if (error.response?.status === 400) {
-        throw new Error(error.response.data?.message || 'No se puede cancelar esta orden');
-      }
+  /**
+   * Actualizar estado de orden (solo ADMIN)
+   */
+  updateOrderStatus: async (id: number, status: string): Promise<Order> => {
+    console.log(' [orderService] Actualizando estado de orden:', id, '→', status);
+    
+    try {
+      //  CORRECTO: /api/orders/:id/status (requiere JWT + ROLE_ADMIN)
+      const response = await api.put<ApiResponse<Order>>(`/api/orders/${id}/status`, { status });
+      
+      console.log(' [orderService] Estado actualizado:', response.data.data);
+      
+      return response.data.data;
+      
+    } catch (error: any) {
+      console.error(' [orderService] Error actualizando estado:', error);
+      throw error;
+    }
+  },
 
-      throw new Error('Error al cancelar la orden');
+  /**
+   * Cancelar orden
+   */
+  cancelOrder: async (id: number): Promise<Order> => {
+    console.log(' [orderService] Cancelando orden:', id);
+    
+    try {
+      //  CORRECTO: /api/orders/:id/cancel (requiere JWT)
+      const response = await api.put<ApiResponse<Order>>(`/api/orders/${id}/cancel`);
+      
+      console.log(' [orderService] Orden cancelada:', response.data.data);
+      
+      return response.data.data;
+      
+    } catch (error: any) {
+      console.error(' [orderService] Error cancelando orden:', error);
+      throw error;
     }
   }
 };

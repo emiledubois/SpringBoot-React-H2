@@ -24,6 +24,7 @@ import java.util.List;
  * Controlador REST para órdenes
  * IE3.2.1 - API REST CRUD completo con Swagger
  * IE3.3.3 - Restricciones de acceso por roles
+ * 
  */
 @RestController
 @RequestMapping("/api/orders")
@@ -37,7 +38,7 @@ public class OrderController {
     private final UserRepository userRepository;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")  //  Agregado ROLE_
     @Operation(summary = "Listar todas las órdenes", description = "Obtiene todas las órdenes (Solo ADMIN)")
     public ResponseEntity<ApiResponse<List<Order>>> getAllOrders() {
         List<Order> orders = orderService.getAllOrders();
@@ -45,7 +46,7 @@ public class OrderController {
     }
 
     @GetMapping("/my-orders")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")  //  Agregado ROLE_
     @Operation(summary = "Mis órdenes", description = "Obtiene las órdenes del usuario autenticado")
     public ResponseEntity<ApiResponse<List<Order>>> getMyOrders(Authentication authentication) {
         try {
@@ -61,7 +62,7 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")  //  Agregado ROLE_
     @Operation(summary = "Obtener orden por ID", description = "Obtiene una orden específica")
     public ResponseEntity<ApiResponse<Order>> getOrderById(
             @PathVariable Long id,
@@ -87,7 +88,7 @@ public class OrderController {
     }
 
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")  //  Agregado ROLE_
     @Operation(summary = "Buscar por estado", description = "Obtiene órdenes por estado (Solo ADMIN)")
     public ResponseEntity<ApiResponse<List<Order>>> getOrdersByStatus(@PathVariable OrderStatus status) {
         List<Order> orders = orderService.getOrdersByStatus(status);
@@ -95,7 +96,7 @@ public class OrderController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")  //  Agregado ROLE_
     @Operation(summary = "Crear orden", description = "Crea una nueva orden de compra")
     public ResponseEntity<ApiResponse<Order>> createOrder(
             @Valid @RequestBody CreateOrderRequest request,
@@ -115,7 +116,7 @@ public class OrderController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")  //  Agregado ROLE_
     @Operation(summary = "Actualizar estado", description = "Actualiza el estado de una orden (Solo ADMIN)")
     public ResponseEntity<ApiResponse<Order>> updateOrderStatus(
             @PathVariable Long id,
@@ -131,7 +132,7 @@ public class OrderController {
     }
 
     @PatchMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")  //  Agregado ROLE_
     @Operation(summary = "Cancelar orden", description = "Cancela una orden")
     public ResponseEntity<ApiResponse<Void>> cancelOrder(
             @PathVariable Long id,
@@ -158,7 +159,7 @@ public class OrderController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")  //  Agregado ROLE_
     @Operation(summary = "Eliminar orden", description = "Elimina una orden (Solo ADMIN)")
     public ResponseEntity<ApiResponse<Void>> deleteOrder(@PathVariable Long id) {
         try {
