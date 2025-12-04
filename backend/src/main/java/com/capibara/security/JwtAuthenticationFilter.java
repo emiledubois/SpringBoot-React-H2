@@ -1,145 +1,229 @@
 package com.capibara.security;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.lang.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import javax.crypto.SecretKey;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * Filtro para autenticación JWT
- *  Autenticación JWT
- * 
- * Este filtro intercepta todas las peticiones HTTP y:
- * 1. Verifica si la ruta es pública (no requiere autenticación)
- * 2. Si no es pública, valida el token JWT
- * 3. Si el token es válido, establece la autenticación en el contexto
+ * Filtro JWT que intercepta cada request para validar tokens
+ * Compatible con JJWT 0.11.x y 0.12.x
+ *  Sistema de autenticación seguro
  */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
-    private final CustomUserDetailsService userDetailsService;
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
 
     /**
-     * Lista de rutas públicas que NO requieren JWT
-     * Estas rutas son accesibles sin autenticación
+     * RUTAS PÚBLICAS - No requieren JWT
+     * IMPORTANTE: Sin "/" al final para que coincida con rutas reales
      */
     private static final List<String> PUBLIC_PATHS = Arrays.asList(
-            "/api/auth",          // Todas las rutas de autenticación (/login, /register)
-          //  "/api/products",      // Productos - GET público, POST/PUT/DELETE requiere auth
-            "/swagger-ui",        // Swagger UI
-            "/v3/api-docs",       // OpenAPI docs
-            "/h2-console",        // H2 Console (solo desarrollo)
-            "/actuator",          // Spring Actuator
-            "/error"              // Página de error
+        "/api/auth",           // Login y registro
+        "/swagger-ui",         // Swagger UI
+        "/v3/api-docs",        // OpenAPI docs
+        "/h2-console",         // H2 Console
+        "/actuator",           // Spring Actuator
+        "/error"               // Error handler
     );
 
     @Override
     protected void doFilterInternal(
-            @NonNull HttpServletRequest request,
-            @NonNull HttpServletResponse response,
-            @NonNull FilterChain filterChain
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // Obtener la ruta de la petición
-        String requestPath = request.getServletPath();
-        String method = request.getMethod();
-
-        // PASO 1: Permitir requests OPTIONS (CORS preflight)
-        if ("OPTIONS".equalsIgnoreCase(method)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // PASO 2: Verificar si es una ruta pública
-        if (isPublicPath(requestPath)) {
-            logger.debug("Ruta pública detectada: " + requestPath + " - Saltando validación JWT");
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // PASO 3: Obtener el header Authorization
-        final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String userEmail;
-
-        // Si no hay header Authorization o no empieza con "Bearer ", continuar sin autenticar
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            logger.debug("No se encontró token JWT en la petición a: " + requestPath);
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // PASO 4: Extraer el token (quitar "Bearer " del inicio)
-        jwt = authHeader.substring(7);
-        
         try {
-            // PASO 5: Extraer el email del usuario del token
-            userEmail = jwtService.extractUsername(jwt);
+            String requestPath = request.getRequestURI();
+            String method = request.getMethod();
 
-            // PASO 6: Si hay email y no hay autenticación previa en el contexto
-            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                
-                // Cargar los detalles del usuario desde la base de datos
-                UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+            logger.debug("=== FILTRO JWT ===");
+            logger.debug("Método: {}", method);
+            logger.debug("Ruta: {}", requestPath);
 
-                // PASO 7: Validar el token
-                if (jwtService.validateToken(jwt, userDetails)) {
-                    // Token válido - Crear objeto de autenticación
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            userDetails.getAuthorities()
-                    );
-                    
-                    // Agregar detalles adicionales de la petición
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    
-                    // PASO 8: Establecer la autenticación en el contexto de seguridad
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                    
-                    logger.debug("Usuario autenticado exitosamente: " + userEmail + " para ruta: " + requestPath);
-                } else {
-                    logger.warn("Token JWT inválido para usuario: " + userEmail);
-                }
+            // PASO 1: Permitir OPTIONS (CORS preflight)
+            if ("OPTIONS".equalsIgnoreCase(method)) {
+                logger.debug(" Request OPTIONS - CORS preflight permitido");
+                filterChain.doFilter(request, response);
+                return;
             }
+
+            // PASO 2: Verificar si es ruta pública
+            if (isPublicPath(requestPath)) {
+                logger.debug(" Ruta pública permitida: {}", requestPath);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // PASO 3: CASO ESPECIAL - GET /api/products es público
+            if ("GET".equalsIgnoreCase(method) && requestPath.startsWith("/api/products")) {
+                logger.debug(" GET /api/products es público - permitido sin JWT");
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // PASO 4: Para rutas protegidas, extraer y validar JWT
+            logger.debug(" Ruta protegida - requiere JWT");
+
+            String token = extractTokenFromRequest(request);
+
+            if (token == null) {
+                logger.warn(" Token JWT no encontrado en headers");
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            logger.debug(" Token encontrado: {}", token.substring(0, Math.min(20, token.length())) + "...");
+
+            // PASO 5: Validar y procesar token
+            if (validateToken(token)) {
+                String username = extractUsername(token);
+                List<String> roles = extractRoles(token);
+
+                logger.debug(" Token válido para usuario: {}", username);
+                logger.debug(" Roles: {}", roles);
+
+                // Crear autenticación
+                List<SimpleGrantedAuthority> authorities = roles.stream()
+                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                        .collect(Collectors.toList());
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(username, null, authorities);
+
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                logger.debug(" Usuario autenticado correctamente");
+            } else {
+                logger.warn(" Token JWT inválido o expirado");
+            }
+
+        } catch (ExpiredJwtException e) {
+            logger.error(" Token JWT expirado: {}", e.getMessage());
+        } catch (MalformedJwtException e) {
+            logger.error(" Token JWT malformado: {}", e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(" Firma JWT inválida: {}", e.getMessage());
+        } catch (UnsupportedJwtException e) {
+            logger.error(" Token JWT no soportado: {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            logger.error(" Token JWT vacío o nulo: {}", e.getMessage());
         } catch (Exception e) {
-            logger.error("Error al procesar token JWT: " + e.getMessage());
-            // No lanzamos la excepción, dejamos que Spring Security maneje el error
+            logger.error(" Error inesperado en filtro JWT: {}", e.getMessage(), e);
         }
 
-        // PASO 9: Continuar con la cadena de filtros
         filterChain.doFilter(request, response);
     }
 
     /**
-     * Verifica si la ruta es pública (no requiere autenticación)
-     * 
-     * @param path Ruta de la petición
-     * @return true si es pública, false si requiere autenticación
+     * Verificar si la ruta es pública (no requiere JWT)
      */
-    private boolean isPublicPath(String path) {
-        // Verificar si la ruta comienza con alguna de las rutas públicas
-        boolean isPublic = PUBLIC_PATHS.stream()
-                .anyMatch(publicPath -> path.startsWith(publicPath));
-        
-        if (isPublic) {
-            logger.debug("Ruta pública: " + path);
+    private boolean isPublicPath(String requestPath) {
+        for (String publicPath : PUBLIC_PATHS) {
+            if (requestPath.startsWith(publicPath)) {
+                return true;
+            }
         }
-        
-        return isPublic;
+        return false;
+    }
+
+    /**
+     * Extraer token del header Authorization
+     */
+    private String extractTokenFromRequest(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+
+        return null;
+    }
+
+    /**
+     * Validar token JWT
+     * Compatible con JJWT 0.11.x y 0.12.x
+     */
+    private boolean validateToken(String token) {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+
+            // Método compatible con ambas versiones
+            Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token);
+
+            return true;
+
+        } catch (Exception e) {
+            logger.debug("Token inválido: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Extraer username del token
+     * Compatible con JJWT 0.11.x y 0.12.x
+     */
+    private String extractUsername(String token) {
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.getSubject();
+    }
+
+    /**
+     * Extraer roles del token
+     * Compatible con JJWT 0.11.x y 0.12.x
+     */
+    @SuppressWarnings("unchecked")
+    private List<String> extractRoles(String token) {
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return (List<String>) claims.get("roles");
     }
 }

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import orderService from '../services/orderService';
 import { CartItem } from '../types';
 
 interface CheckoutProps {
@@ -21,8 +23,10 @@ interface CheckoutFormData {
 
 const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [step, setStep] = useState<'form' | 'confirmation'>('form');
   const [orderNumber, setOrderNumber] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -39,22 +43,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
   const [errors, setErrors] = useState<Partial<CheckoutFormData>>({});
 
   const regions = [
-    'Metropolitana',
-    'Valparaíso',
-    'Biobío',
-    'Araucanía',
-    'Los Lagos',
-    'Maule',
-    'Antofagasta',
-    'Coquimbo',
-    'O\'Higgins',
-    'Ñuble',
-    'Tarapacá',
-    'Los Ríos',
-    'Arica y Parinacota',
-    'Atacama',
-    'Aysén',
-    'Magallanes'
+    'Metropolitana', 'Valparaíso', 'Biobío', 'Araucanía', 'Los Lagos',
+    'Maule', 'Antofagasta', 'Coquimbo', 'O\'Higgins', 'Ñuble',
+    'Tarapacá', 'Los Ríos', 'Arica y Parinacota', 'Atacama', 'Aysén', 'Magallanes'
   ];
 
   const calculateTotal = (): number => {
@@ -63,7 +54,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
 
   const calculateShipping = (): number => {
     const total = calculateTotal();
-    return total > 50000 ? 0 : 5000; // Envío gratis sobre $50.000
+    return total > 50000 ? 0 : 5000;
   };
 
   const formatPrice = (price: number): string => {
@@ -77,13 +68,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
   const validateForm = (): boolean => {
     const newErrors: Partial<CheckoutFormData> = {};
 
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'El nombre es requerido';
-    }
-
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'El apellido es requerido';
-    }
+    if (!formData.firstName.trim()) newErrors.firstName = 'El nombre es requerido';
+    if (!formData.lastName.trim()) newErrors.lastName = 'El apellido es requerido';
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
@@ -99,17 +85,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
       newErrors.phone = 'Teléfono debe tener 9 dígitos';
     }
 
-    if (!formData.address.trim()) {
-      newErrors.address = 'La dirección es requerida';
-    }
-
-    if (!formData.city.trim()) {
-      newErrors.city = 'La ciudad es requerida';
-    }
-
-    if (!formData.zipCode.trim()) {
-      newErrors.zipCode = 'El código postal es requerido';
-    }
+    if (!formData.address.trim()) newErrors.address = 'La dirección es requerida';
+    if (!formData.city.trim()) newErrors.city = 'La ciudad es requerida';
+    if (!formData.zipCode.trim()) newErrors.zipCode = 'El código postal es requerido';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -121,7 +99,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
       ...formData,
       [name]: value
     });
-    // Limpiar error del campo cuando el usuario empieza a escribir
     if (errors[name as keyof CheckoutFormData]) {
       setErrors({
         ...errors,
@@ -130,24 +107,92 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validar formulario
     if (!validateForm()) {
       return;
     }
 
-    // Simular procesamiento de pago
-    const generatedOrderNumber = `ORD-${Date.now()}`;
-    setOrderNumber(generatedOrderNumber);
-    setStep('confirmation');
+    // Verificar autenticación
+    if (!isAuthenticated()) {
+      alert('Debes iniciar sesión para realizar una compra');
+      navigate('/login');
+      return;
+    }
 
-    // Vaciar carrito después de 3 segundos (simulando confirmación del pago)
-    setTimeout(() => {
+    // Verificar que hay items en el carrito
+    if (cart.length === 0) {
+      alert('El carrito está vacío');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Construir dirección completa
+      const fullAddress = `${formData.address}, ${formData.city}, ${formData.region}`;
+
+      // Construir notas del pedido
+      const notes = `
+Nombre: ${formData.firstName} ${formData.lastName}
+Email: ${formData.email}
+Teléfono: ${formData.phone}
+Método de pago: ${formData.paymentMethod === 'credit' ? 'Tarjeta de Crédito' : 
+                   formData.paymentMethod === 'debit' ? 'Tarjeta de Débito' : 'Transferencia'}
+      `.trim();
+
+      // Preparar items de la orden
+      const orderItems = cart.map(item => ({
+        productId: item.id,
+        quantity: item.quantity
+      }));
+
+      // Crear la orden en el backend
+      console.log('Creando orden con items:', orderItems);
+      
+      const order = await orderService.createOrder({
+        items: orderItems,
+        shippingAddress: fullAddress,
+        notes: notes
+      });
+
+      console.log('Orden creada exitosamente:', order);
+
+      // Generar número de orden
+      const generatedOrderNumber = `ORD-${order.id}-${Date.now()}`;
+      setOrderNumber(generatedOrderNumber);
+      
+      // Vaciar carrito
       onClearCart();
-    }, 3000);
+      
+      // Ir a pantalla de confirmación
+      setStep('confirmation');
+
+    } catch (error: any) {
+      console.error('Error al crear orden:', error);
+      
+      let errorMessage = 'Error al procesar la orden. ';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
+        setTimeout(() => navigate('/login'), 2000);
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response.data?.message || 'Datos de la orden inválidos.';
+      } else if (error.message?.includes('Stock insuficiente')) {
+        errorMessage = 'Algunos productos no tienen stock suficiente.';
+      } else {
+        errorMessage += 'Por favor verifica los datos e intenta nuevamente.';
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Si el carrito está vacío
   if (cart.length === 0 && step === 'form') {
     return (
       <div className="container mt-5 mb-5">
@@ -165,6 +210,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
     );
   }
 
+  // Pantalla de confirmación
   if (step === 'confirmation') {
     return (
       <div className="container mt-5 mb-5">
@@ -218,6 +264,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
     );
   }
 
+  // Formulario de checkout
   return (
     <div className="container mt-4 mb-5">
       <div className="row mb-4">
@@ -239,7 +286,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
 
       <form onSubmit={handleSubmit}>
         <div className="row">
-          {/* Formulario de datos */}
+          {/* Formulario */}
           <div className="col-lg-8 mb-4">
             {/* Información Personal */}
             <div className="card shadow-sm mb-4">
@@ -261,6 +308,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                       value={formData.firstName}
                       onChange={handleInputChange}
                       placeholder="Juan"
+                      disabled={loading}
                     />
                     {errors.firstName && (
                       <div className="invalid-feedback">{errors.firstName}</div>
@@ -278,6 +326,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                       value={formData.lastName}
                       onChange={handleInputChange}
                       placeholder="Pérez"
+                      disabled={loading}
                     />
                     {errors.lastName && (
                       <div className="invalid-feedback">{errors.lastName}</div>
@@ -299,6 +348,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                       onChange={handleInputChange}
                       placeholder="tu@email.com"
                       data-testid="email-input"
+                      disabled={loading}
                     />
                     {errors.email && (
                       <div className="invalid-feedback" data-testid="email-error">
@@ -318,6 +368,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                       value={formData.phone}
                       onChange={handleInputChange}
                       placeholder="912345678"
+                      disabled={loading}
                     />
                     {errors.phone && (
                       <div className="invalid-feedback">{errors.phone}</div>
@@ -346,6 +397,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                     value={formData.address}
                     onChange={handleInputChange}
                     placeholder="Av. Providencia 123, Depto 45"
+                    disabled={loading}
                   />
                   {errors.address && (
                     <div className="invalid-feedback">{errors.address}</div>
@@ -365,6 +417,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                       value={formData.city}
                       onChange={handleInputChange}
                       placeholder="Santiago"
+                      disabled={loading}
                     />
                     {errors.city && (
                       <div className="invalid-feedback">{errors.city}</div>
@@ -380,6 +433,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                       name="region"
                       value={formData.region}
                       onChange={handleInputChange}
+                      disabled={loading}
                     >
                       {regions.map(region => (
                         <option key={region} value={region}>
@@ -402,6 +456,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                     value={formData.zipCode}
                     onChange={handleInputChange}
                     placeholder="7500000"
+                    disabled={loading}
                   />
                   {errors.zipCode && (
                     <div className="invalid-feedback">{errors.zipCode}</div>
@@ -426,6 +481,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                     value="credit"
                     checked={formData.paymentMethod === 'credit'}
                     onChange={handleInputChange}
+                    disabled={loading}
                   />
                   <label className="form-check-label" htmlFor="credit">
                     <i className="bi bi-credit-card me-2"></i>
@@ -441,6 +497,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                     value="debit"
                     checked={formData.paymentMethod === 'debit'}
                     onChange={handleInputChange}
+                    disabled={loading}
                   />
                   <label className="form-check-label" htmlFor="debit">
                     <i className="bi bi-credit-card-2-front me-2"></i>
@@ -456,6 +513,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                     value="transfer"
                     checked={formData.paymentMethod === 'transfer'}
                     onChange={handleInputChange}
+                    disabled={loading}
                   />
                   <label className="form-check-label" htmlFor="transfer">
                     <i className="bi bi-bank me-2"></i>
@@ -520,15 +578,26 @@ const Checkout: React.FC<CheckoutProps> = ({ cart, onClearCart }) => {
                   type="submit" 
                   className="btn btn-success w-100 btn-lg"
                   data-testid="submit-btn"
+                  disabled={loading}
                 >
-                  <i className="bi bi-credit-card me-2"></i>
-                  Confirmar Pago
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-credit-card me-2"></i>
+                      Confirmar Pago
+                    </>
+                  )}
                 </button>
 
                 <button 
                   type="button"
                   className="btn btn-outline-secondary w-100 mt-2"
                   onClick={() => navigate('/carrito')}
+                  disabled={loading}
                 >
                   <i className="bi bi-arrow-left me-2"></i>
                   Volver al Carrito

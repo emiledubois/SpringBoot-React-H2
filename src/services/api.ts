@@ -1,46 +1,73 @@
-import axios from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 /**
- * Configuración base de Axios para consumir la API backend
- * IE3.2.2 - Integración Frontend-Backend
+ * Instancia de Axios configurada con:
+ * - Base URL del backend
+ * - Interceptor que agrega JWT automáticamente
+ * - Timeout de 10 segundos
  */
 
-const API_URL = 'http://localhost:8080/api';
-
-// Crear instancia de axios con configuración base
-const api = axios.create({
-    baseURL: API_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
+const api: AxiosInstance = axios.create({
+  baseURL: 'http://localhost:8080',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-// Interceptor para agregar el token JWT a todas las peticiones
+/**
+ * INTERCEPTOR DE REQUEST
+ * Agrega el token JWT automáticamente a cada petición
+ */
 api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+  (config: InternalAxiosRequestConfig) => {
+    // Obtener token del localStorage
+    const token = localStorage.getItem('token');
+    
+    if (token) {
+      // Agregar header Authorization
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 Token agregado al request:', config.method?.toUpperCase(), config.url);
+    } else {
+      console.log('⚠️ No hay token para:', config.method?.toUpperCase(), config.url);
     }
+    
+    return config;
+  },
+  (error) => {
+    console.error('❌ Error en interceptor de request:', error);
+    return Promise.reject(error);
+  }
 );
 
-// Interceptor para manejar errores de autenticación
+/**
+ * INTERCEPTOR DE RESPONSE
+ * Maneja respuestas del servidor (opcional)
+ */
 api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            // Token expirado o inválido - limpiar sesión
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-        }
-        return Promise.reject(error);
+  (response) => {
+    console.log('✅ Respuesta recibida de:', response.config.url, {
+      status: response.status,
+      data: response.data
+    });
+    return response;
+  },
+  (error) => {
+    console.error('❌ Error en respuesta:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+
+    // Si el token expiró (401), podrías redirigir a login aquí
+    if (error.response?.status === 401) {
+      console.warn('⚠️ Token inválido o expirado');
+      // Opcional: localStorage.removeItem('token');
+      // Opcional: window.location.href = '/login';
     }
+
+    return Promise.reject(error);
+  }
 );
 
 export default api;
