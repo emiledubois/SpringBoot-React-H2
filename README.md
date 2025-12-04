@@ -1,4 +1,4 @@
-# Capibara - Tienda Online Fullstack
+# Capibara ( TechStore ) - Tienda Online Fullstack
 
 **DSY1104 - Evaluación Parcial 3**
 
