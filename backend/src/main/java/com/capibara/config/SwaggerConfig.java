@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Configuración de Swagger/OpenAPI
- * IE3.2.1 - Integración de Swagger para documentación de API
+ *  Integración de Swagger para documentación de API
  */
 @Configuration
 public class SwaggerConfig {
@@ -21,11 +21,11 @@ public class SwaggerConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Capibara API - Tienda Online")
-                        .description("API REST completa para la tienda online Capibara - DSY1104 Evaluación Parcial 3")
+                        .description("API REST completa para la tienda online Capibara -")
                         .version("1.0.0")
                         .contact(new Contact()
                                 .name("Equipo Capibara")
-                                .email("contacto@capibara.cl"))
+                                .email(""))
                         .license(new License()
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT"))
